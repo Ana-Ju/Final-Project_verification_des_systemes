@@ -6,11 +6,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 (* --algorithm ticketing {
     variables
-        BankAccount = [x \in AllClients |-> 20];
-        Channels = [x \in AllParticipants |-> <<>>]; \* Channels[ip] is the queue for messages TO ip
-        \* server_tickets = TotalTickets;
-        \* server_balance = 0;
-        \* network = {};
+        BankAccount = [x \in AllClients |-> INITMONEY];
+        Channels = [x \in AllParticipants |-> IF x = 0 THEN 0 ELSE INITMONEY];  \* Channels[ip] is the queue for messages TO ip
+      
 
 
 

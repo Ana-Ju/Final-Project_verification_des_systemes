@@ -103,13 +103,22 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
     }
 
     fair process (HClient \in AllHonest) 
-        variables tickets = {};
+        variables 
+        tickets = {};
         id = self; \* Client's BankID
         ip = self; \* Client's IP address
         state = "idle"; \* Client's state
+        msg = MO \* temporary variable to read messages
+
     {
-        s1: while (TRUE) {
-            
+        s1: 
+        while (TRUE) {
+
+            Think: 
+            if (BankAccount[self] > 0) {
+
+
+
             either{
                 await (state = "idle");
                 \* Client can buy or cancel a ticket

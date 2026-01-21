@@ -109,13 +109,22 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         ip = self; \* Client's IP address
         state = "idle"; \* Client's state
         msg = MO \* temporary variable to read messages
+        ticketsWanted = \* insert random function
 
     {
         s1: 
         while (TRUE) {
 
             Think: 
-            if (BankAccount[self] > 0) {
+            if (ticketsWanted < Sum(tickets)) {
+                if (BankAccount[self] = 0) {\* if client has no money
+                    \* Becomes Satisfied
+                }
+                else {
+                    \* He will try to buy "internalReq.type = "buy""
+                ]
+            else
+                
 
 
 

@@ -6,8 +6,8 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 (* --algorithm ticketing {
     variables
-        BankAccount = [x \in AllClients |-> INITMONEY];
-        Channels = [x \in AllParticipants |-> IF x = 0 THEN 0 ELSE INITMONEY];  \* Channels[ip] is the queue for messages TO ip
+        BankAccount = [x \in AllParticipants |-> IF x \in AllHonest THEN INITMONEY ELSE 0]; \* if its honest it starts with money, but the rest (server or malicius) starts with 0
+        Channels = [x \in AllParticipants |-> <<>>];  \* Channels[ip] is the queue for messages TO ip. Starts empty.
       
 
 
@@ -37,10 +37,17 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         \* -------- Invariants --------
         \* Create your invariants here
 
-
+        \* Conservation of Money: The money the  client has in their pocket + the value of the tickets (price = 1)
+        \* must be equal to the amount of money they had at the beginning
+        MoneyConservation ==   
+            \A c \in AllHonest : BanckAccount[c] + Cardinality(tickets[c]) = INITMONEY
 
         \* -------- Temporal Properties --------
         \* Create meaningful temporal properties if possible
+
+        \* Liveness: The system must eventually stop
+        AllClientsFinish ==
+            <>(\A c \in AllHonest : pc[c] = "Done")
 
     }
 
@@ -107,7 +114,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         tickets = {};
         id = self; \* Client's BankID
         ip = self; \* Client's IP address
-        state = "idle"; \* Client's state
+        state = "shopping"; \* Client's state
         msg = M0 \* temporary variable to hold received messages
         ticketsWanted \in 1..NUMSEATS; 
         current_seat = 1;  \* The seat that he wants to buy at the moment

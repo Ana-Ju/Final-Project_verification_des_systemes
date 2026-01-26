@@ -129,27 +129,47 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                 state := "done";
             }
 
-            else { \* He will try to buy
-                    
-                    
-            }
+                else {
+                    either{
+                        \* He will try to buy the current seat
+                        if (current_seat <= NUMSEATS) {  \* only if has seats available
+                            SendBuy:
+                            Channels[0] := Append(Channels[0],
+                                [type |-> "buy"; from |-> self, seat |-> current_seat, bankID |-> self]);
+            
+                            \* He waits for a answer
+                            WaitBuy:
+                            await Len(Channels[self]) > 0;
+            
+                            \* He process the answer
+                            ProcessBuy:
+                            msg := Head(Channels[self]);
+                            Channels[self] :=Tail(Channels [self]);
+            
+                            if (msg.type = "confirm") {
+                                tickets := tickets \union {msg.seat};
+                            };
+                            \* Doing a Sequencial Strategy here, to ensures that it never gets stuck in a loop
+                            \* Regardless of whether it succeeded or it was occupied, he advances to the next seat
+                            current_seat := current_seat + 1;
+                        }
+                    }
+                    \* He try to cancel a ticket but only if he already has any ticket
+                    or { 
 
+                        \* write here
+
+                    }
+                
+                }
+        }
             
             
                 
 
 
 
-            either{
-                await (state = "idle");
-                \* Client can buy or cancel a ticket
-                \* todo
-            }
-        }
-^
-    }
 
-}
 *)
 
 \* END TRANSLATION 

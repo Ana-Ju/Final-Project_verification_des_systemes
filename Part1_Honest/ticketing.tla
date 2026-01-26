@@ -120,25 +120,18 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         current_seat = 1;  \* The seat that he wants to buy at the moment
 
     {
-        s1: 
-        while (TRUE) {
+        ClientLoop: 
+        while (state = "shopping") {
 
-            Think: 
-            if (BankAccount[self] > 0){
-                if (ticketsWanted = Cardinality(tickets)) {  \* If he already has the amount of tickets that he wanted, so he is Satified
-                     DoneState:
-                     state := "done";
-                }
-                else { \* He will try to buy
-                    
-                    
-                }
-
-
+            \* If he has no money, or if he's already satisfied with the tickets, or there's no more avaiable seats to buy, the system stops.
+            CheckingTermination: 
+            if (BankAccount[self] = 0 \/ Cardinality(tickets) = ticketsWanted \/ current_seat > NUMSEATS) {
+                state := "done";
             }
-            else {
-                DoneState:
-                state := "done";  \* If he has no money he goes to the state Satified
+
+            else { \* He will try to buy
+                    
+                    
             }
 
             

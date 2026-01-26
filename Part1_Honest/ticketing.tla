@@ -88,7 +88,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                  [type |-> "confirm", 
                                                   from |-> 0, 
-                                                  seat |-> internalReq.seat + 1, 
+                                                  seat |-> internalReq.seat, 
                                                   bankID |-> id]);
                 } else {
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
@@ -108,22 +108,34 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         id = self; \* Client's BankID
         ip = self; \* Client's IP address
         state = "idle"; \* Client's state
-        msg = MO \* temporary variable to read messages
-        ticketsWanted = \* insert random function
+        msg = M0 \* temporary variable to hold received messages
+        ticketsWanted \in 1..NUMSEATS; 
+        current_seat = 1;  \* The seat that he wants to buy at the moment
 
     {
         s1: 
         while (TRUE) {
 
             Think: 
-            if (ticketsWanted < Sum(tickets)) {
-                if (BankAccount[self] = 0) {\* if client has no money
-                    \* Becomes Satisfied
+            if (BankAccount[self] > 0){
+                if (ticketsWanted = Cardinality(tickets)) {  \* If he already has the amount of tickets that he wanted, so he is Satified
+                     DoneState:
+                     state := "done";
                 }
-                else {
-                    \* He will try to buy "internalReq.type = "buy""
-                ]
-            else
+                else { \* He will try to buy
+                    
+                    
+                }
+
+
+            }
+            else {
+                DoneState:
+                state := "done";  \* If he has no money he goes to the state Satified
+            }
+
+            
+            
                 
 
 

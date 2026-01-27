@@ -9,6 +9,8 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         BankAccount = [x \in AllParticipants |-> IF x \in AllHonest THEN INITMONEY ELSE 0]; \* if its honest it starts with money, but the rest (server or malicius) starts with 0
         Channels = [x \in AllParticipants |-> <<>>];  \* Channels[ip] is the queue for messages TO ip. Starts empty.
         tickets = [x \in 1..NUMCLIENTS |-> {}];  \* All tickets starts empty
+        seatMap = [s \in 1..NUMSEATS |-> "available"]; \* All seats start as available 
+        \* it's a global variable to be used in the Invariant TypeOk
 
 
 
@@ -35,7 +37,13 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
         \* -------- Invariants --------
-        \* Create your invariants here
+
+        \*Type: This will ensure that the variables always hold the correct type of data
+        TypeOK ==
+            /\ \A x \in AllParticipants : BankAccount[x] >= -1 \* putting here -1 just to be safe with malicius
+            /\ \A s \in Seats : seatMap[s] \in SeatStates
+            /\ \A c \in AllHonest : tickets[c] \subseteq Seats
+            /\ \A x \in AllParticipants : IsFiniteSet(Channels[x])
 
         \* Conservation of Money: The money the  client has in their pocket + the value of the tickets (price = 1)
         \* must be equal to the amount of money they had at the beginning
@@ -43,7 +51,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
 
         \* -------- Temporal Properties --------
-        \* Create meaningful temporal properties if possible
 
         \* Liveness: The system must eventually stop
         AllClientsFinish ==
@@ -53,7 +60,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
     fair process (Server = 0) \* Server has process ID 0
     variables
-        seatMap = [s \in Seats |-> "available"]; \* All seats start as available
         id = 0; \* Server's BankID
         ip = 0; \* Server's IP address
         internalReq = M0; \* Dummy var 

@@ -1,6 +1,6 @@
 ----------------------------- MODULE ticketing -----------------------------
 
-EXTENDS Integers, TLC, Sequences, FiniteSets, helpers
+EXTENDS Integers, TLC, Sequences, FiniteSets
 
 CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
@@ -8,7 +8,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
     variables
         BankAccount = [x \in AllParticipants |-> IF x \in AllHonest THEN INITMONEY ELSE 0]; \* if its honest it starts with money, but the rest (server or malicius) starts with 0
         Channels = [x \in AllParticipants |-> <<>>];  \* Channels[ip] is the queue for messages TO ip. Starts empty.
-      
+        tickets = [x \in 1..NUMCLIENTS |-> {}];  \* All tickets starts empty
 
 
 
@@ -40,7 +40,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         \* Conservation of Money: The money the  client has in their pocket + the value of the tickets (price = 1)
         \* must be equal to the amount of money they had at the beginning
         MoneyConservation ==   
-            \A c \in AllHonest : BanckAccount[c] + Cardinality(tickets[c]) = INITMONEY
+            \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
 
         \* -------- Temporal Properties --------
         \* Create meaningful temporal properties if possible
@@ -111,7 +111,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
     fair process (HClient \in AllHonest) 
         variables 
-            tickets = {};
             id = self; \* Client's BankID
             ip = self; \* Client's IP address
             state = "shopping"; \* Client's state
@@ -129,7 +128,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
             \* If he has no money, or if he's already satisfied with the tickets, or there's no more avaiable seats to buy (after 2 rounds), the system stops.
             CheckingTermination: 
-            if (BankAccount[self] = 0 \/ Cardinality(tickets) = ticketsWanted \/ rounds >= 2) {
+            if (BankAccount[self] = 0 \/ Cardinality(tickets[self]) = ticketsWanted \/ rounds >= 2) {
                 state := "done";
             }
             else {  \* here is the logic of the rounds, if he pass by the last seat he adds one round and try again from seat 1
@@ -155,7 +154,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                             Channels[self] := Tail(Channels[self]);
             
                             if (msg.type = "confirm") {
-                                tickets := tickets \union {msg.seat};
+                                tickets[self] := tickets[self] \union {msg.seat};
                             };
                             \* Doing a Sequencial Strategy here, to ensures that it never gets stuck in a loop
                             \* Regardless of whether it succeeded or it was occupied, he advances to the next seat
@@ -165,9 +164,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     or { 
                         \* He try to cancel a ticket but only if he already has any ticket
                         TryCancel:
-                        if (tickets /= {}) { 
+                        if (tickets[self] /= {}) { 
                             \* I reduced the complexity here by allowing him to cancel only the last ticket purchased 
-                            let (last_ticket == CHOOSE t \in tickets : \A other \in tickets : t >= other) {
+                            let (last_ticket == CHOOSE t \in tickets[self] : \A other \in tickets[self] : t >= other) {
                                 SendCancel:
                                 Channels[0] := Append(Channels[0],
                                     [type |-> "cancel", from |-> self, seat |->  last_ticket, bankID |-> self]);
@@ -182,7 +181,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                 Channels[self] := Tail(Channels[self]);
 
                                 if(msg.type = "confirm") {
-                                    tickets := tickets \ {msg.seat};
+                                    tickets[self] := tickets[self] \ {msg.seat};
                                 }
                             }
                         }

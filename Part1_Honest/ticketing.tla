@@ -111,31 +111,39 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
     fair process (HClient \in AllHonest) 
         variables 
-        tickets = {};
-        id = self; \* Client's BankID
-        ip = self; \* Client's IP address
-        state = "shopping"; \* Client's state
-        msg = M0 \* temporary variable to hold received messages
-        ticketsWanted \in 1..NUMSEATS; 
-        current_seat = 1;  \* The seat that he wants to buy at the moment
+            tickets = {};
+            id = self; \* Client's BankID
+            ip = self; \* Client's IP address
+            state = "shopping"; \* Client's state
+            msg = M0 \* temporary variable to hold received messages
+            ticketsWanted \in 1..NUMSEATS; 
+            current_seat = 1;  \* The seat that he wants to buy at the moment
+
+            \* the client starts at round 0, if he pass by all seats and dont find any, he can do
+            \* it one more time to see if anyone cancelled a ticket and he has a new opportunity to buy a ticket
+            rounds = 0; 
 
     {
         ClientLoop: 
         while (state = "shopping") {
 
-            \* If he has no money, or if he's already satisfied with the tickets, or there's no more avaiable seats to buy, the system stops.
+            \* If he has no money, or if he's already satisfied with the tickets, or there's no more avaiable seats to buy (after 2 rounds), the system stops.
             CheckingTermination: 
-            if (BankAccount[self] = 0 \/ Cardinality(tickets) = ticketsWanted \/ current_seat > NUMSEATS) {
+            if (BankAccount[self] = 0 \/ Cardinality(tickets) = ticketsWanted \/ rounds >= 2) {
                 state := "done";
             }
-
+            else {  \* here is the logic of the rounds, if he pass by the last seat he adds one round and try again from seat 1
+                if (current_seat > NUMSEATS) {
+                    current_seat := 1;
+                    rounds := rounds + 1;
+                }
                 else {
                     either{
                         \* He will try to buy the current seat
                         if (current_seat <= NUMSEATS) {  \* only if has seats available
-                            SendBuy:
+                            TryBuy:
                             Channels[0] := Append(Channels[0],
-                                [type |-> "buy"; from |-> self, seat |-> current_seat, bankID |-> self]);
+                                [type |-> "buy", from |-> self, seat |-> current_seat, bankID |-> self]);
             
                             \* He waits for a answer
                             WaitBuy:
@@ -144,7 +152,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                             \* He process the answer
                             ProcessBuy:
                             msg := Head(Channels[self]);
-                            Channels[self] :=Tail(Channels [self]);
+                            Channels[self] := Tail(Channels[self]);
             
                             if (msg.type = "confirm") {
                                 tickets := tickets \union {msg.seat};
@@ -154,21 +162,37 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                             current_seat := current_seat + 1;
                         }
                     }
-                    \* He try to cancel a ticket but only if he already has any ticket
                     or { 
+                        \* He try to cancel a ticket but only if he already has any ticket
+                        TryCancel:
+                        if (tickets /= {}) { 
+                            \* I reduced the complexity here by allowing him to cancel only the last ticket purchased 
+                            let (last_ticket == CHOOSE t \in tickets : \A other \in tickets : t >= other) {
+                                SendCancel:
+                                Channels[0] := Append(Channels[0],
+                                    [type |-> "cancel", from |-> self, seat |->  last_ticket, bankID |-> self]);
+                               
+                                \* He waits for a answer
+                                WaitCancel:
+                                await Len(Channels[self]) > 0;
 
-                        \* write here
+                                \* He process the answer
+                                ProcessCancel:
+                                msg := Head(Channels[self]);
+                                Channels[self] := Tail(Channels[self]);
 
-                    }
-                
+                                if(msg.type = "confirm") {
+                                    tickets := tickets \ {msg.seat};
+                                }
+                            }
+                        }
+                    }   
                 }
-        }
-            
-            
-                
-
-
-
+            }
+        }       
+    }       
+               
+}
 
 *)
 

@@ -168,15 +168,18 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                         }
                     }
                     or { 
+                        await tickets[self] /= {};  
+                        \* New line because in one time line a client was trying to infinite refund a ticket he doesn't have
+
                         \* He try to cancel a ticket but only if he already has any ticket
                         TryCancel:
                         if (tickets[self] /= {}) { 
                             \* I reduced the complexity here by allowing him to cancel only the last ticket purchased 
                             with (last_ticket = CHOOSE t \in tickets[self] : \A other \in tickets[self] : t >= other) {
-                                \*SendCancel:
+                                \* "SendCancel:"
                                 Channels[0] := Append(Channels[0],
                                     [type |-> "cancel", from |-> self, seat |->  last_ticket, bankID |-> self]);
-                               (*
+                                };
                                 \* He waits for a answer
                                 WaitCancel:
                                 await Len(Channels[self]) > 0;
@@ -188,7 +191,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
                                 if(msg.type = "confirm") {
                                     tickets[self] := tickets[self] \ {msg.seat};
-                                } *)
+                                }
                             }
                         }
                     }   

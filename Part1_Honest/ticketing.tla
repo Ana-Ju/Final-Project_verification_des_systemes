@@ -120,7 +120,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             id = self; \* Client's BankID
             ip = self; \* Client's IP address
             state = "shopping"; \* Client's state
-            msg = M0 \* temporary variable to hold received messages
+            msg = M0; \* temporary variable to hold received messages
             ticketsWanted \in 1..NUMSEATS; 
             current_seat = 1;  \* The seat that he wants to buy at the moment
 
@@ -172,11 +172,11 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                         TryCancel:
                         if (tickets[self] /= {}) { 
                             \* I reduced the complexity here by allowing him to cancel only the last ticket purchased 
-                            let (last_ticket == CHOOSE t \in tickets[self] : \A other \in tickets[self] : t >= other) {
-                                SendCancel:
+                            with (last_ticket = CHOOSE t \in tickets[self] : \A other \in tickets[self] : t >= other) {
+                                \*SendCancel:
                                 Channels[0] := Append(Channels[0],
                                     [type |-> "cancel", from |-> self, seat |->  last_ticket, bankID |-> self]);
-                               
+                               (*
                                 \* He waits for a answer
                                 WaitCancel:
                                 await Len(Channels[self]) > 0;
@@ -188,7 +188,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
                                 if(msg.type = "confirm") {
                                     tickets[self] := tickets[self] \ {msg.seat};
-                                }
+                                } *)
                             }
                         }
                     }   

@@ -107,7 +107,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] + 1,
                                                        ![0] = BankAccount[0] - 1];
 
-                    seatOwner[internalReq.seat] = 0;
+                    seatOwner[internalReq.seat] := 0;
                     \* Part3 add: Seat ownership goes back to the server
 
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
@@ -216,9 +216,13 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             current_seat_m = 1; \* "1" will be changed, just a placeholder
             msg_m = M0;
 
+            rounds = 0; \* implemented in Part3 for limiting the execution, it was infinite
+
     {
         MaliciousLoop:
-        while (TRUE) {
+        while (rounds < INITMONEY * NUMCLIENTS) {
+        \* Limiting scam attempts to the total money in the system
+
             WaitForHonestClient: \* To avoid trying selected a paid seat that do not exist
             await \E seat \in 1..NUMSEATS: seatMap[seat] = "paid";
             
@@ -236,6 +240,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             ProcessCancel: \* Same logic as Honest client
             msg_m := Head(Channels[self]);
             Channels[self] := Tail(Channels[self]);
+            rounds := rounds + 1;
             }
         }
     }
@@ -244,6 +249,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

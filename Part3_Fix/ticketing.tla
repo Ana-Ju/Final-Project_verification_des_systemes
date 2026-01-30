@@ -11,7 +11,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         tickets = [x \in 1..NUMCLIENTS |-> {}];  \* All tickets starts empty
         seatMap = [s \in 1..NUMSEATS |-> "available"]; \* All seats start as available 
         \* it's a global variable to be used in the Invariant TypeOk
-
+        
+        seatOwner = [s \in 1..NUMSEATS |-> 0]; \* Part 3 new variable to keep track of who bought the seat.
+        \* All seats starts belonging to the server
 
 
     define {
@@ -80,6 +82,10 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     seatMap[internalReq.seat] := "paid";
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] - 1,
                                                        ![0] = BankAccount[0] + 1];
+
+                    seatOwner[internalReq.seat] := internalReq.from; 
+                    \* Part3 add: When HClient buys the seat, it gets assigned to his ID
+
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "confirm", 
                                                  from |-> 0, 
@@ -94,10 +100,16 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                                  bankID |-> -2]);
                 }
             } else if (internalReq.type = "cancel") {
-                if (seatMap[internalReq.seat] = "paid") {
+                if (seatMap[internalReq.seat] = "paid" /\ seatOwner[internalReq.seat] = internalReq.from) { 
+                                                        \* Part3 add: Checks if the seat owner ID is the same as the request
+                    
                     seatMap[internalReq.seat] := "available";
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] + 1,
                                                        ![0] = BankAccount[0] - 1];
+
+                    seatOwner[internalReq.seat] = 0;
+                    \* Part3 add: Seat ownership goes back to the server
+
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                  [type |-> "confirm", 
                                                   from |-> 0, 
@@ -232,5 +244,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 

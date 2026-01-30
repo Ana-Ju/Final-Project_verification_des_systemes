@@ -204,36 +204,28 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
     fair process (MClient \in AllMalicious)
         variables
             id_m = self;
-            ip_m = self
-            state_m = 
-            msg_m =
+            \*ip_m = self
+            \*state_m = 
+            \*msg_m =
             \* money wanted_m ?
             current_seat_m = RandomElement(n \in {1..NUMSEATS}
 
     {
         MaliciousLoop:
         while (true) {
-
             CheckingAvailableSeat:
-            \*tries to buy seat
-            if (suceed) {
-                \*refund by himself, as honest client
-            }
-            if (fail (*occupied seat*)) {
-                \* seat paid, not his -> asks for a refund into his bank account
+            with \E seat \in 1..NUMSEATS: seatMap[seat] = "paid" => current_seat_m := seat;
+
+            RunScam:
+            Channels[0] := Append(Channels[0],
+                [type |-> "cancel", from |-> self, seat |->  current_seat_m, bankID |-> self]);
             }
         }
     }
-(* Malicious Logic:
-Tries to buy random seat
-If suceed -> Refund
-If denied -> Asks for refund of that seat
-
-
-*)
-
 }
+*)
 \* END TRANSLATION 
 
 
 =============================================================================
+

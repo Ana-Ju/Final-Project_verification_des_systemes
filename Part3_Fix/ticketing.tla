@@ -217,11 +217,13 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             msg_m = M0;
 
             rounds = 0; \* implemented in Part3 for limiting the execution, it was infinite
+            money_start = 0; \* Variable to store initial money value
 
     {
         MaliciousLoop:
-        while (rounds < INITMONEY * NUMCLIENTS) {
-        \* Limiting scam attempts to the total money in the system
+        while (rounds < 2) {
+            ActualMoney: \* Store how much money he has before the scam
+            money_start := BankAccount[self];
 
             WaitForHonestClient: \* To avoid trying selected a paid seat that do not exist
             await \E seat \in 1..NUMSEATS: seatMap[seat] = "paid";
@@ -240,7 +242,10 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             ProcessCancel: \* Same logic as Honest client
             msg_m := Head(Channels[self]);
             Channels[self] := Tail(Channels[self]);
-            rounds := rounds + 1;
+
+            VerifyScamFail:
+            if (BankAccount[self] = money_start) {
+                rounds := rounds + 1; }
             }
         }
     }
@@ -249,6 +254,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

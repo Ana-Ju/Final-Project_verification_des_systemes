@@ -171,7 +171,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                 }
                 else {
                     either{
-                        if (current_seat <= NUMSEATS) {  
+                        await current_seat <= NUMSEATS;
 
                             TryReserve:
                             Channels[0] := Append(Channels[0],
@@ -187,43 +187,43 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                 seats_reserved := seats_reserved \union {msg.seat}; \* append the seat to the list
                             };
                             current_seat := current_seat + 1;
-                        }
+                        
                     }
                     or {
-                        if ( seats_reserved /= {} ) {
-                            TryBuy:
-                            random_seat := CHOOSE r \in seats_reserved : TRUE; \* to avoid using with (random_seat \in seats_reserved)
+                        await seats_reserved /= {};
+                        TryBuy:
+                        random_seat := CHOOSE r \in seats_reserved : TRUE; \* to avoid using with (random_seat \in seats_reserved)
                             
-                                Channels[0] := Append(Channels[0],
-                                    [type |-> "buy", from |-> self, seat |-> random_seat, bankID |-> self]);
+                        Channels[0] := Append(Channels[0],
+                            [type |-> "buy", from |-> self, seat |-> random_seat, bankID |-> self]);
             
-                            WaitBuy:
-                            await Len(Channels[self]) > 0;
+                        WaitBuy:
+                        await Len(Channels[self]) > 0;
             
-                            ProcessBuy:
-                            msg := Head(Channels[self]);
-                            Channels[self] := Tail(Channels[self]);
+                        ProcessBuy:
+                        msg := Head(Channels[self]);
+                        Channels[self] := Tail(Channels[self]);
             
-                            if (msg.type = "confirm") {
-                                tickets[self] := tickets[self] \union {msg.seat};
-                                seats_reserved := seats_reserved \ {random_seat};
-                            };
-                            DemandCancelReserve:
-                            if (msg.type = "deny") {
-                                Channels[0] := Append(Channels[0], \* Cancel reserved if fails
-                                    [type |-> "cancel", from |-> self, seat |->  random_seat, bankID |-> self]);
-                            };
-                            CancelReserve:
-                            if (msg.type = "deny") {                      
-                                await Len(Channels[self]) > 0; \* Wait for cancel message
-                                msg := Head(Channels[self]); \* Process cancel
-                                Channels[self] := Tail(Channels[self]);
+                        if (msg.type = "confirm") {
+                            tickets[self] := tickets[self] \union {msg.seat};
+                            seats_reserved := seats_reserved \ {random_seat};
+                        };
+                        DemandCancelReserve:
+                        if (msg.type = "deny") {
+                            Channels[0] := Append(Channels[0], \* Cancel reserved if fails
+                                [type |-> "cancel", from |-> self, seat |->  random_seat, bankID |-> self]);
+                        };
+                        CancelReserve:
+                        if (msg.type = "deny") {                      
+                            await Len(Channels[self]) > 0; \* Wait for cancel message
+                            msg := Head(Channels[self]); \* Process cancel
+                             Channels[self] := Tail(Channels[self]);
 
-                                if(msg.type = "confirm") {
-                                    seats_reserved := seats_reserved \ {random_seat};
-                                }
-                            };
-                        }
+                            if(msg.type = "confirm") {
+                                seats_reserved := seats_reserved \ {random_seat};
+                            }
+                        };
+                        
                     }
                     or { 
                         await tickets[self] /= {};  
@@ -295,6 +295,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

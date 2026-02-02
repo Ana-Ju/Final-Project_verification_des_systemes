@@ -23,10 +23,10 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         AllClients == AllHonest \union AllMalicious
         AllParticipants == AllClients \union {0} \* 0 is the server
         Seats == 1..NUMSEATS
-        SeatStates == {"available", "paid"}
+        SeatStates == {"available", "paid", "reserved"}
         seatMapType == [Seats -> SeatStates]
         IPs == Nat \* IP addresses are natural numbers
-        TransactionType == {"buy", "cancel", "confirm", "deny"}
+        TransactionType == {"buy", "cancel", "confirm", "deny", "reserve"}
         bankIDType == AllParticipants \union {-2} \* -2 is for "not given"
         MessageType == [type : TransactionType,
                         from : IPs,
@@ -77,15 +77,12 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             
             TREAT:
             if (internalReq.type = "buy"){
-                if (seatMap[internalReq.seat] = "available" 
+                if (seatMap[internalReq.seat] = "available" \* change to "reserved" in his name
                     /\ BankAccount[internalReq.bankID] > 0) {
                     seatMap[internalReq.seat] := "paid";
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] - 1,
                                                        ![0] = BankAccount[0] + 1];
-
                     seatOwner[internalReq.seat] := internalReq.from; 
-                    \* Part3 add: When HClient buys the seat, it gets assigned to his ID
-
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "confirm", 
                                                  from |-> 0, 
@@ -101,8 +98,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                 }
             } else if (internalReq.type = "cancel") {
                 if (seatMap[internalReq.seat] = "paid" /\ seatOwner[internalReq.seat] = internalReq.from) { 
-                                                        \* Part3 add: Checks if the seat owner ID is the same as the request
-                    
                     seatMap[internalReq.seat] := "available";
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] + 1,
                                                        ![0] = BankAccount[0] - 1];
@@ -115,6 +110,10 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                                   from |-> 0, 
                                                   seat |-> internalReq.seat, 
                                                   bankID |-> id]);
+                } else if ((* Seat map reserved and he`s the owner *)){
+                \* release seat
+                \* confirm message
+                
                 } else {
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                  [type |-> "deny", 
@@ -122,8 +121,19 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                                   seat |-> internalReq.seat, 
                                                   bankID |-> id]);
                 }
+            } else if (internalReq.type = "reserve") {
+                if (seatMap[internalReq.seat] = "available" {
+                    (*seatMap[internalReq.seat] := "reserved";
+                    seatOwner[internalReq.seat] := internalReq.from; 
+                    Channels[internalReq.from] := Append(Channels[internalReq.from], 
+                                                [type |-> "reserve", 
+                                                 from |-> 0, 
+                                                 seat |-> internalReq.seat, 
+                                                 bankID |-> 0]);*)
+                } else {
+                \* reservation error
+                }
             }
-            \* Ignore other message types
         }
     }
 
@@ -158,6 +168,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     either{
                         \* He will try to buy the current seat
                         if (current_seat <= NUMSEATS) {  \* only if has seats available
+
+                            \* Add "Try reserve" logic first
+
                             TryBuy:
                             Channels[0] := Append(Channels[0],
                                 [type |-> "buy", from |-> self, seat |-> current_seat, bankID |-> self]);
@@ -254,6 +267,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

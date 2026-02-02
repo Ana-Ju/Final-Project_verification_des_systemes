@@ -110,6 +110,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                                   bankID |-> id]);
                 } else if (seatMap[internalReq.seat] = "reserved" /\ seatOwner[internalReq.seat] = internalReq.from){ \*If it`s not paid yet
                 seatOwner[internalReq.seat] := 0;
+                seatMap[internalReq.seat] := "available";
                 Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "confirm", 
                                                  from |-> 0, 
@@ -151,7 +152,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             msg = M0;
             ticketsWanted \in 1..NUMSEATS; 
             current_seat = 1;
+            rounds = 0;
             seats_reserved = {}; \* add set to store reserved seats
+            random_seat = 0; \* temp value to store random reserved seat to pay or cancel
 
     {
         ClientLoop: 
@@ -183,13 +186,14 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                             if (msg.type = "confirm") { 
                                 seats_reserved := seats_reserved \union {msg.seat}; \* append the seat to the list
                             };
-                        current_seat := current_seat + 1;
+                            current_seat := current_seat + 1;
                         }
                     }
                     or {
                         if ( seats_reserved /= {} ) {
                             TryBuy:
-                            with (random_seat \in seats_reserved) {
+                            random_seat := CHOOSE r \in seats_reserved : TRUE; \* to avoid using with (random_seat \in seats_reserved)
+                            
                                 Channels[0] := Append(Channels[0],
                                     [type |-> "buy", from |-> self, seat |-> random_seat, bankID |-> self]);
             
@@ -204,23 +208,21 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                 tickets[self] := tickets[self] \union {msg.seat};
                                 seats_reserved := seats_reserved \ {random_seat};
                             };
-                            else {
-                                CancelReserved:
-                                Channels[0] := Append(Channels[0],
+                            DemandCancelReserve:
+                            if (msg.type = "deny") {
+                                Channels[0] := Append(Channels[0], \* Cancel reserved if fails
                                     [type |-> "cancel", from |-> self, seat |->  random_seat, bankID |-> self]);
                             };
+                            CancelReserve:
+                            if (msg.type = "deny") {                      
+                                await Len(Channels[self]) > 0; \* Wait for cancel message
+                                msg := Head(Channels[self]); \* Process cancel
+                                Channels[self] := Tail(Channels[self]);
 
-                            WaitCancelReserved:
-                            await Len(Channels[self]) > 0;
-
-                            ProcessCancelReserved:
-                            msg := Head(Channels[self]);
-                            Channels[self] := Tail(Channels[self]);
-
-                            if(msg.type = "confirm") {
-                                seats_reserved := seats_reserved \ {random_seat};
+                                if(msg.type = "confirm") {
+                                    seats_reserved := seats_reserved \ {random_seat};
                                 }
-                            }
+                            };
                         }
                     }
                     or { 
@@ -293,6 +295,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

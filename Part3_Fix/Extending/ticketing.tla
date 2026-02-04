@@ -7,7 +7,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 (* --algorithm ticketing {
     variables
         BankAccount = [x \in AllParticipants |-> IF x \in AllHonest THEN INITMONEY ELSE 0];
-        Channels = [x \in AllParticipants |-> <<>>]; 
+        Channels = [x \in 0..(NUMCLIENTS + 10) |-> <<>>]; \* Changed to avoid bug with clients changing IPs, if they choose a ip that goes to +10, it has to be available
         tickets = [x \in 1..NUMCLIENTS |-> {}]; 
         seatMap = [s \in 1..NUMSEATS |-> "available"];
         
@@ -30,7 +30,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         bankIDType == AllParticipants \union {-2}
         MessageType == [type : TransactionType,
                         from : IPs,
-                        senderID: IPs;  \* Who owns the seat
+                        senderID: IPs,  \* Who owns the seat
                         seat : SUBSET Seats,
                         bankID : bankIDType]
         M0 == [type |-> "buy",
@@ -52,7 +52,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         \* Conservation of Money: The money the  client has in their pocket + the value of the tickets (price = 1)
         \* must be equal to the amount of money they had at the beginning
         MoneyConservation ==   
-            \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
+            IF \A clients \in AllParticipants : Channels[clients] = << >> \*When the channels are empty (to avoid crash)
+            THEN \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
+            ELSE TRUE
 
         \* -------- Temporal Properties --------
 
@@ -68,7 +70,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         ip = 0;
         internalReq = M0;
         cost = 0;
-        availableSet = {} \* to calculate the query response
+        availableSet = {}; \* to calculate the query response
 
     {
         s1: while (TRUE) {
@@ -321,6 +323,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

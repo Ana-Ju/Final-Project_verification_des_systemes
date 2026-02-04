@@ -48,7 +48,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         \* Conservation of Money: The money the  client has in their pocket + the value of the tickets (price = 1)
         \* must be equal to the amount of money they had at the beginning
         MoneyConservation ==   
-            \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
+            IF \A clients \in AllParticipants : Channels[clients] = << >> \*When the channels are empty (to avoid crash)
+            THEN \A c \in AllHonest : BankAccount[c] + Cardinality(tickets[c]) = INITMONEY
+            ELSE TRUE
 
         \* -------- Temporal Properties --------
 

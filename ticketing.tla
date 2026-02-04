@@ -230,7 +230,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                 Channels[self] := Tail(Channels[self]);
     
                                 if(msg.type = "confirm") {
-                                    tickets[self] := tickets[self] \ {msg.seat};
+                                    tickets[self] := tickets[self] \ msg.seat;
                                 
                                 }
                             }
@@ -283,6 +283,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

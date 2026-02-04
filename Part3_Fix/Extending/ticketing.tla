@@ -30,10 +30,12 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         bankIDType == AllParticipants \union {-2}
         MessageType == [type : TransactionType,
                         from : IPs,
+                        senderID: IPs;  \* Who owns the seat
                         seat : SUBSET Seats,
                         bankID : bankIDType]
         M0 == [type |-> "buy",
                  from |-> 0,
+                 senderID |-> 0,
                  seat |-> {},
                  bankID |-> 0]
 
@@ -83,11 +85,11 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             TREAT:
             if (internalReq.type = "buy"){
                 \* Check if all seats in the set can be purchased. They can be purchased if available or if reserved and the owner is the one requesting them
-                if ((\A s \in internalReq.seat : seatMap[s] = "available" \/ (seatMap[s] = "reserved" /\ seatOwner[s] = internalReq.from))
+                if ((\A s \in internalReq.seat : seatMap[s] = "available" \/ (seatMap[s] = "reserved" /\ seatOwner[s] = internalReq.senderID))
                     /\ BankAccount[internalReq.bankID] >= cost) { 
 
                     seatMap := [s \in Seats |-> IF s \in internalReq.seat THEN "paid" ELSE seatMap [s]];  \*Update the map
-                    seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN  internalReq.from ELSE seatOwner[s]];  \* Defines the ultimate owner
+                    seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN  internalReq.senderID ELSE seatOwner[s]];  \* Defines the ultimate owner
 
                     BankAccount := [BankAccount EXCEPT ![internalReq.bankID] = BankAccount[internalReq.bankID] - cost,
                                                        ![0] = BankAccount[0] + cost];
@@ -95,19 +97,21 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "confirm", 
                                                  from |-> 0, 
+                                                 senderID |-> 0,
                                                  seat |-> internalReq.seat, 
                                                  bankID |-> -2]);
                 }
                 else {
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "deny", 
-                                                 from |-> 0, 
+                                                 from |-> 0,
+                                                 senderID |-> 0,
                                                  seat |-> internalReq.seat, 
                                                  bankID |-> -2]);
                 }
             } else if (internalReq.type = "cancel") {
                 \* Check if all seats belong to the client
-                if (\A s \in internalReq.seat : (seatMap[s] = "paid" \/ seatMap[s] = "reserved") /\ seatOwner[s] = internalReq.from) { 
+                if (\A s \in internalReq.seat : (seatMap[s] = "paid" \/ seatMap[s] = "reserved") /\ seatOwner[s] = internalReq.senderID) { 
                     seatMap := [s \in Seats |-> IF s \in internalReq.seat THEN "available" ELSE seatMap[s]]; \* Free up all seats in the set
                     seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN 0 ELSE seatOwner[s]];
 
@@ -119,13 +123,15 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                  [type |-> "confirm", 
-                                                  from |-> 0, 
+                                                  from |-> 0,
+                                                  senderID |-> 0,
                                                   seat |-> internalReq.seat, 
                                                   bankID |-> id]);
                 } else {
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                  [type |-> "deny", 
-                                                  from |-> 0, 
+                                                  from |-> 0,
+                                                  senderID |-> 0,
                                                   seat |-> internalReq.seat, 
                                                   bankID |-> id]);
                 }
@@ -133,23 +139,29 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             } else if (internalReq.type = "reserve") { 
                 if (\A s \in internalReq.seat : seatMap[s] = "available") {
                     seatMap := [s \in Seats |-> IF s \in internalReq.seat THEN "reserved" ELSE seatMap[s]];
-                    seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN internalReq.from ELSE seatOwner[s]];
+                    seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN internalReq.senderID ELSE seatOwner[s]];
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "confirm", 
-                                                 from |-> 0, 
+                                                 from |-> 0,
+                                                 senderID |-> 0,
                                                  seat |-> internalReq.seat, 
                                                  bankID |-> id]);
                  } else {
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
                                                 [type |-> "deny", 
-                                                 from |-> 0, 
+                                                 from |-> 0,
+                                                 senderID |-> 0,
                                                  seat |-> internalReq.seat, 
                                                  bankID |-> -2]);
                 }
             } else if (internalReq.type = "query") {
                 availableSet := {s \in Seats : seatMap[s] = "available"};
                 Channels[internalReq.from] := Append(Channels[internalReq.from],
-                    [type |-> "info", from |-> 0, seat |-> availableSet, bankID |-> -2]);
+                    [type |-> "info", 
+                    from |-> 0,
+                    senderID |-> 0,
+                    seat |-> availableSet, 
+                    bankID |-> -2]);
 
             }
         }
@@ -176,32 +188,37 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                 state := "done";
             }
             else {
-                if (known_available = {}) {
-                    SendQuery:
-                    Channels[0] := Append(Channels[0], [type |-> "query", from |-> self, seat|-> {}, bankID |-> self]);
-
-                    WaitInfo:
-                    await Len(Channels[self]) > 0;
-                    msg := Head(Channels[self]);
-                    Channels[self] := Tail(Channels[self]);
-
-                    if (msg.type = "info") {
-                        known_available := msg.seat;
-                        \* it counts as a round if the server says there is nothing available to buy (failed attempt)
-                        if (known_available = {}) {
-                            rounds := rounds +1;
-                        };
-                    };
+                either{ \* The client can choose to change IP or proceed with shopping
+                    ChangeIP:
+                    ip := self + 10;
                 }
-                else { \* Choose the first N available seats from the list to purchase
-                    my_batch := { x \in known_available :
-                                  Cardinality({ y \in known_available : y <= x}) <= (ticketsWanted - Cardinality(tickets[self])) 
-                                }; \* it only retrieves the N smallest available IDs
+                or {
+                    if (known_available = {}) {
+                        SendQuery:
+                        Channels[0] := Append(Channels[0], [type |-> "query", from |-> ip, senderID |-> self, seat|-> {}, bankID |-> self]);
 
-                    either{    
+                        WaitInfo:
+                        await Len(Channels[self]) > 0;
+                        msg := Head(Channels[self]);
+                        Channels[self] := Tail(Channels[self]);
+
+                        if (msg.type = "info") {
+                            known_available := msg.seat;
+                            \* it counts as a round if the server says there is nothing available to buy (failed attempt)
+                            if (known_available = {}) {
+                                rounds := rounds +1;
+                            };
+                        };
+                    }
+                    else { \* Choose the first N available seats from the list to purchase
+                        my_batch := { x \in known_available :
+                                      Cardinality({ y \in known_available : y <= x}) <= (ticketsWanted - Cardinality(tickets[self])) 
+                                    }; \* it only retrieves the N smallest available IDs
+
+                        either{    
                             TryReserveBatch: 
                             Channels[0] := Append(Channels[0],
-                                [type |-> "reserve", from |-> self, seat |-> my_batch, bankID |-> self]);                        
+                                [type |-> "reserve", from |-> ip, senderID |-> self, seat |-> my_batch, bankID |-> self]);                        
     
                             WaitReserve:
                             await Len(Channels[self]) > 0;
@@ -212,7 +229,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                             if (msg.type = "confirm") { 
                                     SendBuyBatch:
                                     Channels[0] := Append(Channels[0],
-                                        [type |-> "buy", from |-> self, seat |-> my_batch, bankID |-> self]);
+                                        [type |-> "buy", from |-> ip, senderID |-> self, seat |-> my_batch, bankID |-> self]);
 
                                     WaitBuy:
                                     await Len(Channels[self]) > 0;
@@ -227,7 +244,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                     } else { 
                                         SendCancelReserve:
                                         Channels[0] := Append(Channels[0], \* Cancel reserved if payment fails 
-                                            [type |-> "cancel", from |-> self, seat |->  my_batch, bankID |-> self]);
+                                            [type |-> "cancel", from |-> ip, senderID |-> self, seat |->  my_batch, bankID |-> self]);
 
                                         WaitCancelCleanup: await Len(Channels[self]) > 0;
                                         Channels[self] := Tail(Channels[self]);
@@ -241,7 +258,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                         TryCancel:
                         if (tickets[self] /= {}) { 
                             Channels[0] := Append(Channels[0],
-                                [type |-> "cancel", from |-> self, seat |->  tickets[self], bankID |-> self]);
+                                [type |-> "cancel", from |-> ip, seat |->  tickets[self], senderID |-> self, bankID |-> self]);
                                     
                             WaitCancel:
                             await Len(Channels[self]) > 0;
@@ -252,13 +269,13 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
     
                             if(msg.type = "confirm") {
                                 tickets[self] := tickets[self] \ msg.seat;
-                                known_available := {};
-                                
+                                known_available := {};  
                             }
                         }
                     }
-                }
-            } 
+                 }
+              }
+           }
         }
     }
     fair process (MClient \in AllMalicious)
@@ -285,7 +302,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
             RunScam: 
             Channels[0] := Append(Channels[0],
-                [type |-> "cancel", from |-> self, seat |->  {current_seat_m}, bankID |-> self]);
+                [type |-> "cancel", from |-> self,  senderID |-> self, seat |->  {current_seat_m}, bankID |-> self]);
 
             WaitCancel: 
             await Len(Channels[self]) > 0;
@@ -304,6 +321,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

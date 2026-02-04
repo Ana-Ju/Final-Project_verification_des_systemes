@@ -26,7 +26,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         SeatStates == {"available", "paid", "reserved"} \* New state
         seatMapType == [Seats -> SeatStates]
         IPs == Nat \* IP addresses are natural numbers
-        TransactionType == {"buy", "cancel", "confirm", "deny", "reserve"} \* New type
+        TransactionType == {"buy", "cancel", "confirm", "deny", "reserve", "query", "info"} \* New type
         bankIDType == AllParticipants \union {-2}
         MessageType == [type : TransactionType,
                         from : IPs,
@@ -65,6 +65,9 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
         id = 0; 
         ip = 0;
         internalReq = M0;
+        cost = 0;
+        availableSet = {} \* to calculate the query response
+
     {
         s1: while (TRUE) {
             
@@ -129,7 +132,6 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
             } else if (internalReq.type = "reserve") { 
                 if (\A s \in internalReq.seat : seatMap[s] = "available") {
-
                     seatMap := [s \in Seats |-> IF s \in internalReq.seat THEN "reserved" ELSE seatMap[s]];
                     seatOwner := [s \in Seats |-> IF s \in internalReq.seat THEN internalReq.from ELSE seatOwner[s]];
                     Channels[internalReq.from] := Append(Channels[internalReq.from], 
@@ -144,6 +146,11 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                                                  seat |-> internalReq.seat, 
                                                  bankID |-> -2]);
                 }
+            } else if (internalReq.type = "query") {
+                availableSet := {s \in Seats : seatMap[s] = "available"};
+                Channels[internalReq.from] := Append(Channels[internalReq.from],
+                    [type |-> "info", from |-> 0, seat |-> availableSet, bankID |-> -2]);
+
             }
         }
     }
@@ -283,6 +290,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

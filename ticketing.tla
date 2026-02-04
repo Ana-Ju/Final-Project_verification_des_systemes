@@ -165,6 +165,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             current_seat = 1;
             rounds = 0;
             my_batch = {}; \* Variable for assembling the purchase lot
+            known_available = {}; \* Seats that the customer knows are available
 
     {
         ClientLoop: 
@@ -174,30 +175,41 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             if (BankAccount[self] = 0 \/ Cardinality(tickets[self]) = ticketsWanted \/ rounds >= 2) {
                 state := "done";
             }
-            else {  
-                if (current_seat > NUMSEATS) {
-                    current_seat := 1;
-                    rounds := rounds + 1;
-                }
-                else { \* Calculate what Client still need to buy and try to get everything
-                    my_batch := { i \in current_seat..NUMSEATS :
-                                  i < current_seat + (ticketsWanted - Cardinality(tickets[self])) };
+            else {
+                if (known_available = {}) {
+                    SendQuery:
+                    Channels[0] := Append(Channels[0], type |-> "query", from |-> self, seat|-> {}, bankID |-> self]);
 
-                    if (my_batch = {}) {  \* If the batch is empty (end of queue), proceed to reset the round
-                        current_seat := NUMSEATS + 1;
-                    } else {
-                        either{    
-                                TryReserveBatch:
-                                Channels[0] := Append(Channels[0],
-                                    [type |-> "reserve", from |-> self, seat |-> my_batch, bankID |-> self]);                        
+                    WaitInfo:
+                    await Len(Channels[self]) > 0;
+                    msg := Head(Channels[self]);
+                    Channels[self] := Tail(Channels[self]);
+
+                    if (msg.type = "info") {
+                        know_available := msg.seat;
+                        \* it counts as a round if the server says there is nothing available to buy (failed attempt)
+                        if (known_available = {}) {
+                            rounds := rounds +1;
+                        };
+                    };
+                }
+                else { \* Choose the first N available seats from the list to purchase
+                    my_batch := { x \in known_available :
+                                  Cardinality({ y \in known_available : y <= x}) <= (ticketsWanted - Cardinality(tickets[self])) 
+                                }; \* it only retrieves the N smallest available IDs
+
+                    either{    
+                            TryReserveBatch: 
+                            Channels[0] := Append(Channels[0],
+                                [type |-> "reserve", from |-> self, seat |-> my_batch, bankID |-> self]);                        
     
-                                WaitReserve:
-                                await Len(Channels[self]) > 0;
-                                ProcessReserve:
-                                msg := Head(Channels[self]);
-                                Channels[self] := Tail(Channels[self]);
+                            WaitReserve:
+                            await Len(Channels[self]) > 0;
+                            ProcessReserve:
+                            msg := Head(Channels[self]);
+                            Channels[self] := Tail(Channels[self]);
     
-                                if (msg.type = "confirm") { 
+                            if (msg.type = "confirm") { 
                                     SendBuyBatch:
                                     Channels[0] := Append(Channels[0],
                                         [type |-> "buy", from |-> self, seat |-> my_batch, bankID |-> self]);
@@ -211,6 +223,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                         
                                     if (msg.type = "confirm") {
                                         tickets[self] := tickets[self] \union msg.seat;
+                                        know_available := {};
                                     } else { 
                                         SendCancelReserve:
                                         Channels[0] := Append(Channels[0], \* Cancel reserved if payment fails 
@@ -218,28 +231,29 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
                                         WaitCancelCleanup: await Len(Channels[self]) > 0;
                                         Channels[self] := Tail(Channels[self]);
+                                        know_available := {};
                                     }
-                                };
-                                current_seat := current_seat + 1;
-                            
-                        }
-                        or {
-                            TryCancel:
-                            if (tickets[self] /= {}) { 
-                                Channels[0] := Append(Channels[0],
-                                    [type |-> "cancel", from |-> self, seat |->  tickets[self], bankID |-> self]);
+                                } else { \* the reservation failed
+                                    know_available := {};
+                                };                            
+                    }
+                    or {
+                        TryCancel:
+                        if (tickets[self] /= {}) { 
+                            Channels[0] := Append(Channels[0],
+                                [type |-> "cancel", from |-> self, seat |->  tickets[self], bankID |-> self]);
                                     
-                                WaitCancel:
-                                await Len(Channels[self]) > 0;
+                            WaitCancel:
+                            await Len(Channels[self]) > 0;
     
-                                ProcessCancel:
-                                msg := Head(Channels[self]);
-                                Channels[self] := Tail(Channels[self]);
+                            ProcessCancel:
+                            msg := Head(Channels[self]);
+                            Channels[self] := Tail(Channels[self]);
     
-                                if(msg.type = "confirm") {
-                                    tickets[self] := tickets[self] \ msg.seat;
+                            if(msg.type = "confirm") {
+                                tickets[self] := tickets[self] \ msg.seat;
+                                know_available := {};
                                 
-                                }
                             }
                         }
                     }
@@ -290,6 +304,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 

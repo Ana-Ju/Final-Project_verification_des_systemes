@@ -178,7 +178,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
             else {
                 if (known_available = {}) {
                     SendQuery:
-                    Channels[0] := Append(Channels[0], type |-> "query", from |-> self, seat|-> {}, bankID |-> self]);
+                    Channels[0] := Append(Channels[0], [type |-> "query", from |-> self, seat|-> {}, bankID |-> self]);
 
                     WaitInfo:
                     await Len(Channels[self]) > 0;
@@ -186,7 +186,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                     Channels[self] := Tail(Channels[self]);
 
                     if (msg.type = "info") {
-                        know_available := msg.seat;
+                        known_available := msg.seat;
                         \* it counts as a round if the server says there is nothing available to buy (failed attempt)
                         if (known_available = {}) {
                             rounds := rounds +1;
@@ -223,7 +223,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
                         
                                     if (msg.type = "confirm") {
                                         tickets[self] := tickets[self] \union msg.seat;
-                                        know_available := {};
+                                        known_available := {};
                                     } else { 
                                         SendCancelReserve:
                                         Channels[0] := Append(Channels[0], \* Cancel reserved if payment fails 
@@ -231,10 +231,10 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
                                         WaitCancelCleanup: await Len(Channels[self]) > 0;
                                         Channels[self] := Tail(Channels[self]);
-                                        know_available := {};
+                                        known_available := {};
                                     }
                                 } else { \* the reservation failed
-                                    know_available := {};
+                                    known_available := {};
                                 };                            
                     }
                     or {
@@ -252,7 +252,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
     
                             if(msg.type = "confirm") {
                                 tickets[self] := tickets[self] \ msg.seat;
-                                know_available := {};
+                                known_available := {};
                                 
                             }
                         }
@@ -304,6 +304,7 @@ CONSTANTS NUMCLIENTS, MALICIOUS, NUMSEATS, INITMONEY
 
 
 =============================================================================
+
 
 
 
